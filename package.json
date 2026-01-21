@@ -1,0 +1,16 @@
+{
+  "name": "cloudflare-claude-sandbox",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:worker\"",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "dev:worker": "npm run dev --prefix worker",
+    "build": "npm run build --prefix frontend",
+    "deploy": "npm run deploy --prefix worker",
+    "typecheck": "npm run typecheck --prefix worker"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

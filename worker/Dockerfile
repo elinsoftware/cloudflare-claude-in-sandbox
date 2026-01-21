@@ -24,6 +24,9 @@ RUN npm install -g @anthropic-ai/claude-code
 # Create workspace directory
 RUN mkdir -p /workspace
 
+# Claude Code configuration is created at runtime by server.js
+# This allows dynamic injection of API key and ServiceNow credentials
+
 # Set environment for terminal
 ENV SHELL=/bin/bash
 ENV TERM=xterm-256color

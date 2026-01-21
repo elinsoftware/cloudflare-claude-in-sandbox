@@ -6,13 +6,32 @@ interface Env {
   ClaudeContainer: DurableObjectNamespace<ClaudeContainer>;
 }
 
+// Credentials storage interface
+interface StoredCredentials {
+  instance: string;
+  username: string;
+  password: string;
+  apiKey: string;
+}
+
 // Custom Container class for Claude Code sandbox
 export class ClaudeContainer extends Container<Env> {
   defaultPort = TTYD_PORT;
-  sleepAfter = "10m"; // Auto-sleep after 10 minutes of inactivity
+  sleepAfter = "5m"; // Auto-sleep after 5 minutes of inactivity
+  enableInternet = true; // Required for Claude Code to work
 
-  // Environment variables will be set dynamically per session
-  envVars: Record<string, string> = {};
+  // Store credentials in Durable Object storage
+  async storeCredentials(credentials: StoredCredentials): Promise<void> {
+    await this.ctx.storage.put("credentials", credentials);
+    console.log("[Container] Credentials stored");
+  }
+
+  // Retrieve credentials from Durable Object storage
+  async getCredentials(): Promise<StoredCredentials | null> {
+    const credentials = await this.ctx.storage.get<StoredCredentials>("credentials");
+    console.log("[Container] Credentials retrieved:", credentials ? "[SET]" : "[NOT FOUND]");
+    return credentials || null;
+  }
 
   override onStart() {
     console.log("[Container] Started", {
@@ -101,29 +120,38 @@ export default {
         const sessionId = generateSessionId();
         console.log("Creating sandbox session:", sessionId);
 
+        // Log the values we're about to pass
+        console.log("Environment variables to pass:", {
+          SERVICENOW_INSTANCE: body.instance,
+          SERVICENOW_USERNAME: body.username,
+          SERVICENOW_PASSWORD: body.password ? "[REDACTED]" : "[EMPTY]",
+          ANTHROPIC_API_KEY: body.anthropicApiKey ? "[REDACTED]" : "[EMPTY]",
+        });
+
         // Get the container instance using session ID
         const id = env.ClaudeContainer.idFromName(sessionId);
         const container = env.ClaudeContainer.get(id);
 
-        // Start container with environment variables and wait for ttyd port
+        // Store credentials in Durable Object storage (accessible when WebSocket connects)
+        await container.storeCredentials({
+          instance: body.instance,
+          username: body.username,
+          password: body.password,
+          apiKey: body.anthropicApiKey,
+        });
+
+        // Start container and wait for ttyd port
         console.log("Starting container with ttyd on port", TTYD_PORT);
         await container.startAndWaitForPorts({
           ports: [TTYD_PORT],
           startOptions: {
-            envVars: {
-              SERVICENOW_INSTANCE: body.instance,
-              SERVICENOW_USERNAME: body.username,
-              SERVICENOW_PASSWORD: body.password,
-              ANTHROPIC_API_KEY: body.anthropicApiKey,
-              CLAUDE_CODE_SKIP_UPDATE_CHECK: "1",
-              TERM: "xterm-256color",
-            },
+            enableInternet: true,
           },
         });
 
         console.log("Container started, ttyd ready!");
 
-        // Return the WebSocket URL for terminal connection
+        // Return the WebSocket URL for terminal connection (no credentials in URL)
         const wsProtocol = url.protocol === "https:" ? "wss:" : "ws:";
         const wsUrl = `${wsProtocol}//${url.host}/api/terminal/${sessionId}`;
 
@@ -157,14 +185,32 @@ export default {
       const id = env.ClaudeContainer.idFromName(sessionId);
       const container = env.ClaudeContainer.get(id);
 
+      // Retrieve credentials from Durable Object storage
+      const credentials = await container.getCredentials();
+      if (!credentials) {
+        console.error("No credentials found for session:", sessionId);
+        return new Response("Session credentials not found. Please create a new session.", { status: 400 });
+      }
+
+      console.log("Credentials from storage:", {
+        instance: credentials.instance,
+        username: credentials.username,
+        password: credentials.password ? "[SET]" : "[EMPTY]",
+        apiKey: credentials.apiKey ? "[SET]" : "[EMPTY]",
+      });
+
       try {
-        // Connect to WebSocket inside container
+        // Connect to WebSocket inside container, passing credentials as custom headers
         const containerWsUrl = `http://container.internal/ws`;
-        console.log("Connecting to container WebSocket:", containerWsUrl);
+        console.log("Connecting to container WebSocket with credentials in headers");
 
         const containerResp = await container.fetch(containerWsUrl, {
           headers: {
             Upgrade: "websocket",
+            "X-ServiceNow-Instance": credentials.instance,
+            "X-ServiceNow-Username": credentials.username,
+            "X-ServiceNow-Password": credentials.password,
+            "X-Anthropic-Api-Key": credentials.apiKey,
           },
         });
 

@@ -28,7 +28,7 @@ export function StatusBar({ status, workerUrl, instance }: StatusBarProps) {
   const workerName = workerUrl ? extractWorkerName(workerUrl) : null
 
   return (
-    <div className="flex items-center justify-between px-4 py-2 bg-black border-t border-gray-800">
+    <div className="flex items-center justify-between px-4 py-2 bg-[rgb(3,45,66)]">
       <div className="flex items-center gap-2">
         <div className={`w-2 h-2 rounded-full ${color}`} />
         <span className="text-sm text-gray-300">{text}</span>

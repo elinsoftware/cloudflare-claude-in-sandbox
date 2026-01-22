@@ -1,82 +1,70 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code when working with this repository.
 
-## Project Overview
+## Overview
 
-Single-page React application enabling users to interact with Claude Code running in a Cloudflare Sandbox container, with ServiceNow integration capabilities.
+React SPA for interacting with Claude Code in Cloudflare Containers, with ServiceNow integration.
 
 ## Commands
 
 ```bash
-# Development (runs frontend + worker concurrently)
-npm run dev
-
-# Individual services
-npm run dev:frontend    # Vite dev server (HMR)
-npm run dev:worker      # Wrangler local dev
-
-# Build & Deploy
-npm run build           # Build frontend
+npm run dev:frontend    # Vite dev server (port 5173)
+npm run build           # Build frontend (single index.html output)
 npm run deploy          # Deploy worker to Cloudflare
-npm run typecheck       # TypeScript check (worker only)
-
-# Linting (frontend only)
-cd frontend && npm run lint
+npm run typecheck       # TypeScript check (worker)
 ```
+
+Note: `npm run dev:worker` not useful - Containers only work when deployed.
 
 ## Architecture
 
-Three-tier distributed system:
-
 ```
-Browser (React) → Cloudflare Worker (Durable Objects) → Container (Claude Code CLI)
+Browser (React/xterm.js) → Worker (Durable Object) → Container (node-pty + Claude CLI)
 ```
 
-**Data flow:**
-1. User enters ServiceNow credentials in React form
-2. Frontend POSTs to `/api/connect`
-3. Worker creates container via Durable Object with credentials as env vars
-4. Container starts WebSocket server (ttyd protocol)
-5. Frontend connects via WebSocket for terminal I/O
-6. Claude Code CLI runs in container with ServiceNow access
+**Flow:**
+1. Frontend POSTs credentials to `/api/connect`
+2. Worker creates ClaudeContainer Durable Object, stores credentials
+3. Container starts with server.js (WebSocket + node-pty)
+4. Worker proxies WebSocket, passes credentials via headers
+5. server.js configures Claude Code with credentials, spawns CLI
 
-## Key Technical Details
+## Key Details
 
-**ttyd Protocol** - Binary WebSocket messages:
-- Client sends: `"0" + input` (terminal input), `"1" + JSON.stringify({columns, rows})` (resize)
-- Server sends: `Buffer([0]) + data` (terminal output)
+**Container:** `node:20-slim` base, Claude CLI via native installer, server.js runs WebSocket server on port 8080.
 
-**Worker Endpoints:**
-- `POST /api/connect` - Create/reconnect session, returns sessionId + wsUrl
-- `WebSocket /api/terminal/:sessionId` - Proxied terminal connection
+**ttyd Protocol:**
+- Client: `"0" + input`, `"1" + JSON.stringify({columns, rows})`
+- Server: `Buffer([0]) + data`
+
+**Credentials:** Stored in Durable Object storage, passed to container via custom headers on WebSocket upgrade.
+
+**Endpoints:**
+- `POST /api/connect` - Create/reconnect session
+- `WS /api/terminal/:sessionId` - Terminal I/O
 - `POST /api/disconnect` - Stop container
-- `GET /health` - Health check
-
-**Container:** Node 20 + node-pty + ws + Claude Code CLI global install
 
 ## Project Structure
 
 ```
-frontend/           # React SPA (Vite, Tailwind, xterm.js)
-  src/
-    App.tsx         # Main state management
-    components/
-      ConnectForm   # Credentials form, localStorage persistence
-      Terminal      # xterm.js + ttyd protocol handling
-      StatusBar     # Connection indicator
+frontend/src/
+  App.tsx              # State management
+  components/
+    ConnectForm.tsx    # Credentials form (localStorage persistence)
+    Terminal.tsx       # xterm.js + ttyd protocol
+    StatusBar.tsx      # Connection indicator
+  utils/storage.ts     # LocalStorage helpers
 
-worker/             # Cloudflare Worker
-  src/index.ts      # Request handler + ClaudeContainer Durable Object
-  server.js         # Container's WebSocket server (copied into Docker)
-  Dockerfile        # Container image
-  wrangler.jsonc    # Durable Object + Container config
+worker/
+  src/index.ts         # Worker + ClaudeContainer Durable Object
+  server.js            # Container WebSocket server (node-pty)
+  Dockerfile           # node:20-slim + Claude CLI
 ```
 
-## Important Notes
+## Notes
 
-- Credentials stored in localStorage (frontend) and passed to container via env vars
-- Sessions identified by UUID, allow reconnection via sessionId
-- Container auto-sleeps after 10 minutes idle
-- Dev proxy: frontend at :5173 proxies `/api` to worker at :8787
-- No test suite currently configured
+- Container auto-sleeps after 5 minutes idle
+- Sessions persist by sessionId (UUID)
+- Frontend builds to single index.html via vite-plugin-singlefile
+- No test suite

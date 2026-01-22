@@ -1,108 +1,107 @@
-# Claude Code in Cloudflare Sandbox - Specification
+# Claude Code in Cloudflare Containers - Specification
 
 ## Overview
 
-Single-page React application enabling users to interact with Claude Code running in a Cloudflare Sandbox container, with ServiceNow integration capabilities.
+Single-page React application for interacting with Claude Code running in Cloudflare Containers, with ServiceNow integration.
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    ServiceNow Instance                       │
-│  ┌───────────────────────────────────────────────────────┐  │
-│  │              React App (Vite + Tailwind)              │  │
-│  │  ┌─────────────┐    ┌──────────────────────────────┐  │  │
-│  │  │ Connect Form│    │    xterm.js Terminal         │  │  │
-│  │  │ - Instance  │    │    (WebSocket connection)    │  │  │
-│  │  │ - Username  │    │                              │  │  │
-│  │  │ - Password  │    │                              │  │  │
-│  │  └─────────────┘    └──────────────────────────────┘  │  │
-│  └───────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              │ WebSocket
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Cloudflare Worker                         │
-│  - Manages sandbox lifecycle                                 │
-│  - Proxies WebSocket connections                            │
-│  - Passes ServiceNow credentials to sandbox                 │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              │ getSandbox() / wsConnect()
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                 Cloudflare Sandbox Container                 │
-│  - Ubuntu 22.04 LTS base                                    │
-│  - Claude Code CLI installed                                │
-│  - Uses ServiceNow Table API directly (no MCP needed)       │
-│  - Receives credentials via environment variables           │
-└─────────────────────────────────────────────────────────────┘
+Browser (React/xterm.js) → Cloudflare Worker → Durable Object → Container (Claude CLI)
 ```
+
+**Data Flow:**
+1. User opens React app (standalone or embedded in ServiceNow)
+2. User enters credentials (Worker URL, ServiceNow instance, username, password, Anthropic API key)
+3. Frontend POSTs to `/api/connect`
+4. Worker creates ClaudeContainer Durable Object, stores credentials in DO storage
+5. Container starts with server.js (WebSocket server + node-pty)
+6. Worker returns WebSocket URL
+7. Frontend connects xterm.js via WebSocket
+8. Worker proxies WebSocket to container, passing credentials via headers
+9. server.js configures Claude Code with credentials, spawns CLI
+10. User interacts with Claude Code terminal
 
 ## Tech Stack
 
 ### Frontend
-- **Framework**: React 18+
-- **Build Tool**: Vite
+- **Framework**: React 18
+- **Build Tool**: Vite + vite-plugin-singlefile (outputs single index.html)
 - **Styling**: Tailwind CSS
-- **Terminal**: xterm.js via `react-xtermjs` wrapper
-- **WebSocket**: Native WebSocket API
+- **Terminal**: xterm.js
+- **Storage**: localStorage for credential persistence
 
 ### Backend
 - **Runtime**: Cloudflare Workers
-- **Container**: Cloudflare Sandbox SDK
-- **Base Image**: `cloudflare/sandbox:0.3.3` (or latest)
+- **State**: Durable Objects (ClaudeContainer extends Container)
+- **Compute**: Cloudflare Containers
 
-### Container Environment
-- Ubuntu 22.04 LTS
-- Node.js 20 LTS
-- Claude Code CLI (npm install -g @anthropic-ai/claude-code)
-- Claude Code uses ServiceNow Table API directly (no MCP server needed)
+### Container
+- **Base Image**: node:20-slim
+- **Terminal**: node-pty + ws (WebSocket server)
+- **Claude**: Native installer (curl https://claude.ai/install.sh)
+- **Utilities**: git, curl, jq, bash
 
 ## Components
 
-### 1. Frontend - React Application
+### 1. Frontend
 
-#### 1.1 Connect Form
-- Instance URL input (e.g., `dev12345.service-now.com`)
-- Username input
-- Password input (masked)
-- Connect button
-- Validation: all fields required
+#### ConnectForm
+- Worker URL input
+- ServiceNow instance input (auto-detects from hostname)
+- Username/password inputs
+- Anthropic API key input
+- Session ID (for reconnection)
+- All fields persist to localStorage
 
-#### 1.2 Terminal Component
-- xterm.js terminal embedded in page
-- Full terminal emulation (colors, cursor, scrollback)
-- Responsive sizing (fills available space)
-- WebSocket connection to Cloudflare Worker
-- Auto-reconnect on disconnect
+#### Terminal
+- xterm.js with ttyd protocol handling
+- Auto-resize on window change
+- Disconnect button overlay
 
-#### 1.3 State Management
-- Connection status (disconnected, connecting, connected)
-- Session ID for sandbox instance
-- Error handling and display
+#### StatusBar
+- Connection status indicator
+- Worker URL and instance display
+- Logged-in user display
 
-### 2. Backend - Cloudflare Worker
+### 2. Worker (`worker/src/index.ts`)
 
-#### 2.1 Endpoints
+#### ClaudeContainer (Durable Object)
+```typescript
+class ClaudeContainer extends Container<Env> {
+  defaultPort = 8080;
+  sleepAfter = "5m";
+  enableInternet = true;
+
+  async storeCredentials(credentials: StoredCredentials): Promise<void>
+  async getCredentials(): Promise<StoredCredentials | null>
+}
+```
+
+#### Endpoints
 
 **POST /api/connect**
 ```typescript
 Request: {
-  instance: string;    // ServiceNow instance URL
+  instance: string;
   username: string;
   password: string;
+  anthropicApiKey: string;
+  sessionId?: string;  // Optional: reconnect to existing
 }
 Response: {
-  sessionId: string;   // Unique sandbox session ID
-  wsUrl: string;       // WebSocket URL for terminal
+  sessionId: string;
+  wsUrl: string;
 }
 ```
 
 **WebSocket /api/terminal/:sessionId**
-- Bidirectional terminal I/O
-- Proxies to sandbox container
+- Proxies WebSocket between frontend and container
+- Passes credentials to container via headers:
+  - `X-ServiceNow-Instance`
+  - `X-ServiceNow-Username`
+  - `X-ServiceNow-Password`
+  - `X-Anthropic-Api-Key`
 
 **POST /api/disconnect**
 ```typescript
@@ -110,55 +109,26 @@ Request: { sessionId: string }
 Response: { success: boolean }
 ```
 
-#### 2.2 Sandbox Management
-- Create sandbox with unique session ID
-- Set environment variables:
-  - `SERVICENOW_INSTANCE`
-  - `SERVICENOW_USERNAME`
-  - `SERVICENOW_PASSWORD`
-  - `ANTHROPIC_API_KEY` (from Worker secrets)
-- Start Claude Code CLI process
-- Proxy terminal I/O via WebSocket
-- Handle cleanup on disconnect
+**GET /health**
+- Returns `{ status: "ok" }`
 
-### 3. Container - Sandbox Configuration
+### 3. Container (`worker/server.js`)
 
-#### 3.1 Dockerfile
-```dockerfile
-FROM docker.io/cloudflare/sandbox:0.3.3
+WebSocket server on port 8080 implementing ttyd protocol:
 
-# Install Claude Code
-RUN npm install -g @anthropic-ai/claude-code
-```
+**On Connection:**
+1. Parse credentials from request headers
+2. Create Claude Code config files:
+   - `~/.claude/settings.json` (API key, permissions, env vars)
+   - `~/.claude/CLAUDE.md` (ServiceNow credential usage instructions)
+   - `~/.claude/skills/servicenow/SKILL.md` (ServiceNow API reference)
+   - `~/.claude.json` (skip onboarding)
+3. Set environment variables
+4. Spawn bash with `claude; exec bash`
 
-#### 3.2 Startup Script
-- Start Claude Code CLI with ServiceNow credentials available as env vars
-- Claude Code will use ServiceNow Table API directly for queries
-- Connect to terminal WebSocket
-
-## User Flow
-
-1. User opens React app (embedded as ServiceNow Widget)
-2. User enters ServiceNow credentials in form (instance, username, password)
-3. User clicks "Connect"
-4. Frontend calls POST /api/connect
-5. Worker creates sandbox with credentials as env vars
-6. Worker starts Claude Code in sandbox
-7. Worker returns WebSocket URL
-8. Frontend connects xterm.js to WebSocket
-9. User sees Claude Code terminal, can start chatting
-10. Claude Code uses ServiceNow Table API directly to query/interact with instance
-11. User clicks "Disconnect" or closes browser
-12. Worker destroys sandbox, cleans up resources
-
-## Security Considerations
-
-- Credentials transmitted over HTTPS only
-- Credentials stored only in sandbox env vars (not logged)
-- Sandbox isolated per session
-- Sandbox auto-destroys after inactivity (10 min default)
-- CORS configured for ServiceNow domain only
-- Rate limiting on connect endpoint
+**Protocol:**
+- Client sends: `"0" + input`, `"1" + JSON.stringify({columns, rows})`
+- Server sends: `Buffer([0]) + data`
 
 ## Project Structure
 
@@ -166,109 +136,66 @@ RUN npm install -g @anthropic-ai/claude-code
 cloudflare-claude-in-sandbox/
 ├── frontend/
 │   ├── src/
+│   │   ├── App.tsx
+│   │   ├── main.tsx
+│   │   ├── index.css
+│   │   ├── assets/hero.png
 │   │   ├── components/
 │   │   │   ├── ConnectForm.tsx
 │   │   │   ├── Terminal.tsx
 │   │   │   └── StatusBar.tsx
-│   │   ├── hooks/
-│   │   │   ├── useWebSocket.ts
-│   │   │   └── useTerminal.ts
-│   │   ├── App.tsx
-│   │   ├── main.tsx
-│   │   └── index.css
+│   │   └── utils/storage.ts
 │   ├── index.html
 │   ├── package.json
 │   ├── vite.config.ts
 │   ├── tailwind.config.js
 │   └── tsconfig.json
 ├── worker/
-│   ├── src/
-│   │   ├── index.ts
-│   │   ├── sandbox.ts
-│   │   └── websocket.ts
+│   ├── src/index.ts
+│   ├── server.js
 │   ├── Dockerfile
 │   ├── wrangler.jsonc
 │   └── package.json
-├── spec.md
-└── README.md
+├── assets/
+├── CLAUDE.md
+├── SPEC.md
+├── README.md
+└── package.json
 ```
 
-## Development Phases
+## Security
 
-### Phase 1: Basic Infrastructure
-- Set up Vite + React + Tailwind frontend
-- Set up Cloudflare Worker with Sandbox SDK
-- Basic "Hello World" container spin-up
-
-### Phase 2: Terminal Integration
-- Integrate xterm.js in frontend
-- Implement WebSocket proxy in Worker
-- Connect terminal to sandbox shell
-
-### Phase 3: Claude Code Integration
-- Install Claude Code in container
-- Configure Anthropic API key
-- Test basic Claude Code interaction
-
-### Phase 4: ServiceNow Integration
-- Add credential form to frontend
-- Pass credentials to sandbox as env vars
-- Test Claude Code using ServiceNow Table API
-
-### Phase 5: Polish & Production
-- Error handling and reconnection
-- Loading states and UX improvements
-- Security hardening
-- Documentation
+- Credentials transmitted over HTTPS only
+- Credentials stored in Durable Object storage (not logged)
+- Credentials passed to container via headers (not URL)
+- Container isolated per session
+- Container auto-sleeps after 5 minutes idle
+- CORS headers allow configurable origins
 
 ## Configuration
 
-### Environment Variables (Worker)
-- `ANTHROPIC_API_KEY`: Claude API key (secret)
+### Frontend (localStorage)
+- `workerUrl`: Cloudflare Worker URL
+- `instance`: ServiceNow instance hostname
+- `username`: ServiceNow username
+- `password`: ServiceNow password
+- `anthropicApiKey`: Anthropic API key
+- `sessionId`: Session UUID for reconnection
 
-### Environment Variables (Sandbox)
-- `SERVICENOW_INSTANCE`: From user input
-- `SERVICENOW_USERNAME`: From user input
-- `SERVICENOW_PASSWORD`: From user input
-- `ANTHROPIC_API_KEY`: Passed from Worker
+### Container (env vars set by server.js)
+- `ANTHROPIC_API_KEY`
+- `SERVICENOW_INSTANCE`
+- `SERVICENOW_USERNAME`
+- `SERVICENOW_PASSWORD`
 
-## API Reference
+## Deployment
 
-### Cloudflare Sandbox SDK (Key Methods)
-```typescript
-// Get/create sandbox instance
-const sandbox = getSandbox(env.Sandbox, sessionId, {
-  sleepAfter: '10m',
-});
+```bash
+# Deploy worker to Cloudflare (required - Containers don't run locally)
+npm run deploy
 
-// Set environment variables
-await sandbox.setEnvVars({
-  SERVICENOW_INSTANCE: instance,
-  SERVICENOW_USERNAME: username,
-  SERVICENOW_PASSWORD: password,
-  ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY,
-});
-
-// Execute command
-const result = await sandbox.exec('claude');
-
-// WebSocket connection
-return await sandbox.wsConnect(request, 8080);
-
-// Cleanup
-await sandbox.destroy();
+# Build frontend for ServiceNow deployment
+npm run build  # outputs frontend/dist/index.html
 ```
 
----
-
-## Decisions Made
-
-- **Hosting**: ServiceNow Widget (embedded in ServiceNow UI)
-- **ServiceNow Integration**: Claude Code uses Table API directly (no MCP server)
-- **Authentication**: Username/Password (basic auth)
-
-## Remaining Questions
-
-1. **Session Persistence**: Should sessions persist between browser refreshes? Or always start fresh?
-2. **Multiple Sessions**: Allow multiple concurrent sessions per user?
-3. **ServiceNow Permissions**: Which tables/APIs will Claude Code need access to?
+Frontend can be deployed to ServiceNow using the update set or served standalone.

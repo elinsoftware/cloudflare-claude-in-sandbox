@@ -3,7 +3,7 @@ const pty = require('node-pty');
 const fs = require('fs');
 const path = require('path');
 
-// Version: 2026-01-22-v9
+// Version: 2026-01-22-v10
 
 // Setup Claude Code configuration (called on first WebSocket connection with credentials)
 function setupClaudeConfig(apiKey, instance, username, password) {
@@ -346,7 +346,7 @@ Responses are JSON with a \`result\` key:
 2. **Use \`sysparm_display_value=true\`** to get readable values instead of sys_ids
 3. **Paginate large results** with \`sysparm_limit\` and \`sysparm_offset\`
 4. **Use \`-s\` flag with curl** to suppress progress output
-5. **Pipe to \`jq\`** for formatted JSON: \`| jq '.result'\`
+5. **Do NOT pipe curl output to jq** - single-value jq output may not display correctly in this environment. Instead, return raw JSON and parse the response yourself
 `;
 
   fs.writeFileSync(path.join(skillsDir, 'SKILL.md'), skillContent);

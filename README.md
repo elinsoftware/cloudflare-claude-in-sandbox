@@ -1,6 +1,12 @@
-# Claude Code in Cloudflare Containers
+# ServiceNow with Claude Code in Cloudflare Containers
 
-Run Claude Code CLI in isolated Cloudflare containers with a web-based terminal interface. Designed to be embedded in ServiceNow as a single-page application.
+Run Claude Code CLI in isolated Cloudflare containers with a web-based terminal interface. 
+
+Designed to be embedded in ServiceNow as a single-page application:
+
+![screen1](/assets/s1.png)
+
+![screen2](/assets/s2.png)
 
 > **Note:** The backend must be deployed to Cloudflare - it cannot run locally. Cloudflare Containers are only available in the Cloudflare production environment. The frontend can be developed locally and will connect to your deployed Cloudflare Worker.
 
@@ -189,7 +195,5 @@ The container runs a WebSocket server implementing the ttyd protocol:
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
-
-Copyright (c) 2025 ELIN Software
 
 Contact: info@elinsoftware.com

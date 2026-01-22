@@ -3,7 +3,7 @@ const pty = require('node-pty');
 const fs = require('fs');
 const path = require('path');
 
-// Version: 2026-01-22-v8
+// Version: 2026-01-22-v9
 
 // Setup Claude Code configuration (called on first WebSocket connection with credentials)
 function setupClaudeConfig(apiKey, instance, username, password) {
@@ -14,9 +14,12 @@ function setupClaudeConfig(apiKey, instance, username, password) {
   // Create directories
   fs.mkdirSync(skillsDir, { recursive: true });
 
+  // Normalize instance - strip https:// or http:// prefix if present
+  const normalizedInstance = instance.replace(/^https?:\/\//, '');
+
   // Set environment variables for ServiceNow credentials (so they don't appear in command output)
   process.env.ANTHROPIC_API_KEY = apiKey;
-  process.env.SERVICENOW_INSTANCE = instance;
+  process.env.SERVICENOW_INSTANCE = normalizedInstance;
   process.env.SERVICENOW_USERNAME = username;
   process.env.SERVICENOW_PASSWORD = password;
 
@@ -24,7 +27,7 @@ function setupClaudeConfig(apiKey, instance, username, password) {
   const settings = {
     env: {
       ANTHROPIC_API_KEY: apiKey,
-      SERVICENOW_INSTANCE: instance,
+      SERVICENOW_INSTANCE: normalizedInstance,
       SERVICENOW_USERNAME: username,
       SERVICENOW_PASSWORD: password
     },
@@ -48,7 +51,7 @@ function setupClaudeConfig(apiKey, instance, username, password) {
 
 **NEVER hardcode credentials in commands.** Always use environment variables:
 
-- \`$SERVICENOW_INSTANCE\` - ServiceNow instance (e.g., dev12345)
+- \`$SERVICENOW_INSTANCE\` - ServiceNow instance hostname (e.g., dev12345.service-now.com)
 - \`$SERVICENOW_USERNAME\` - Username for API calls
 - \`$SERVICENOW_PASSWORD\` - Password for API calls
 

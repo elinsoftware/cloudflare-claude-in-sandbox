@@ -37,11 +37,11 @@ export function Terminal({ wsUrl, onDisconnect }: TerminalProps) {
       fontSize: 14,
       fontFamily: 'Menlo, Monaco, "Courier New", monospace',
       theme: {
-        background: '#1a1a2e',
+        background: '#000000',
         foreground: '#eaeaea',
         cursor: '#eaeaea',
-        cursorAccent: '#1a1a2e',
-        selectionBackground: '#3d3d5c',
+        cursorAccent: '#000000',
+        selectionBackground: '#333333',
       },
     })
 
@@ -167,7 +167,7 @@ export function Terminal({ wsUrl, onDisconnect }: TerminalProps) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex justify-between items-center px-4 py-2 bg-gray-800 border-b border-gray-700">
+      <div className="flex justify-between items-center px-4 py-2 bg-black border-b border-gray-800">
         <span className="text-sm text-gray-300">Claude Code Terminal</span>
         <button
           onClick={onDisconnect}
@@ -176,7 +176,7 @@ export function Terminal({ wsUrl, onDisconnect }: TerminalProps) {
           Disconnect
         </button>
       </div>
-      <div ref={terminalRef} className="flex-1 p-2 bg-[#1a1a2e]" />
+      <div ref={terminalRef} className="flex-1 p-2 bg-black" />
     </div>
   )
 }

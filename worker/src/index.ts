@@ -87,9 +87,9 @@ export default {
           sessionId?: string; // Optional: reconnect to existing session
         };
 
-        // If sessionId provided, try to reconnect
+        // If sessionId provided, check if we can reconnect to existing container
         if (body.sessionId) {
-          console.log("Reconnecting to existing session:", body.sessionId);
+          console.log("Checking existing session:", body.sessionId);
           const id = env.ClaudeContainer.idFromName(body.sessionId);
           const container = env.ClaudeContainer.get(id);
 
@@ -97,19 +97,18 @@ export default {
           const state = await container.getState();
           console.log("Container state:", state.status);
 
-          if (state.status !== "running" && state.status !== "healthy") {
-            return Response.json(
-              { error: `Container is not running (status: ${state.status}). Create a new session.` },
-              { status: 400, headers: corsHeaders(origin) }
-            );
+          if (state.status === "running" || state.status === "healthy") {
+            // Container exists and is running - reconnect
+            console.log("Reconnecting to existing session:", body.sessionId);
+            const wsProtocol = url.protocol === "https:" ? "wss:" : "ws:";
+            const wsUrl = `${wsProtocol}//${url.host}/api/terminal/${body.sessionId}`;
+            return Response.json({ sessionId: body.sessionId, wsUrl }, { headers: corsHeaders(origin) });
           }
-
-          const wsProtocol = url.protocol === "https:" ? "wss:" : "ws:";
-          const wsUrl = `${wsProtocol}//${url.host}/api/terminal/${body.sessionId}`;
-          return Response.json({ sessionId: body.sessionId, wsUrl }, { headers: corsHeaders(origin) });
+          // Container not running - will create new session with this ID below
+          console.log("Container not running, will create new session with ID:", body.sessionId);
         }
 
-        // Create new session
+        // Create new session (with custom ID if provided, otherwise generate UUID)
         if (!body.instance || !body.username || !body.password || !body.anthropicApiKey) {
           return Response.json(
             { error: "Missing required fields: instance, username, password, anthropicApiKey" },
@@ -117,7 +116,7 @@ export default {
           );
         }
 
-        const sessionId = generateSessionId();
+        const sessionId = body.sessionId || generateSessionId();
         console.log("Creating sandbox session:", sessionId);
 
         // Log the values we're about to pass

@@ -18,6 +18,7 @@ function App() {
   const [status, setStatus] = useState<ConnectionStatus>('disconnected')
   const [session, setSession] = useState<Session | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [loggedInUser, setLoggedInUser] = useState<string | null>(null)
 
   const handleConnect = useCallback(
     async (credentials: {
@@ -35,23 +36,7 @@ function App() {
       const workerUrl = credentials.workerUrl.replace(/\/$/, '')
 
       try {
-        // If sessionId is provided, try to reconnect to existing session
-        if (credentials.sessionId) {
-          const wsProtocol = workerUrl.startsWith('https') ? 'wss:' : 'ws:'
-          const host = new URL(workerUrl).host
-          const wsUrl = `${wsProtocol}//${host}/api/terminal/${credentials.sessionId}`
-
-          setSession({
-            sessionId: credentials.sessionId,
-            wsUrl,
-            workerUrl,
-            instance: credentials.instance,
-          })
-          setStatus('connected')
-          return
-        }
-
-        // Otherwise create a new session
+        // Call backend to connect (handles both new sessions and reconnections)
         const response = await fetch(`${workerUrl}/api/connect`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -60,6 +45,7 @@ function App() {
             username: credentials.username,
             password: credentials.password,
             anthropicApiKey: credentials.anthropicApiKey,
+            sessionId: credentials.sessionId || undefined,
           }),
         })
 
@@ -124,6 +110,7 @@ function App() {
 
               <ConnectForm
                 onConnect={handleConnect}
+                onUserDetected={setLoggedInUser}
                 disabled={status === 'connecting'}
               />
 
@@ -141,7 +128,7 @@ function App() {
         )}
       </main>
 
-      <StatusBar status={status} workerUrl={session?.workerUrl} instance={session?.instance} />
+      <StatusBar status={status} workerUrl={session?.workerUrl} instance={session?.instance} userName={loggedInUser} />
     </div>
   )
 }

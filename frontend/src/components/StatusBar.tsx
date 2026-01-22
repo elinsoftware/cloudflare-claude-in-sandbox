@@ -4,6 +4,7 @@ interface StatusBarProps {
   status: ConnectionStatus
   workerUrl?: string
   instance?: string
+  userName?: string | null
 }
 
 function extractWorkerName(url: string): string {
@@ -17,7 +18,7 @@ function extractWorkerName(url: string): string {
   }
 }
 
-export function StatusBar({ status, workerUrl, instance }: StatusBarProps) {
+export function StatusBar({ status, workerUrl, instance, userName }: StatusBarProps) {
   const statusConfig = {
     disconnected: { color: 'bg-gray-500', text: 'Disconnected' },
     connecting: { color: 'bg-yellow-500', text: 'Connecting...' },
@@ -36,9 +37,14 @@ export function StatusBar({ status, workerUrl, instance }: StatusBarProps) {
           <span className="text-sm text-gray-500">- {workerName}</span>
         )}
       </div>
-      {instance && status === 'connected' && (
-        <span className="text-sm text-gray-500">{instance}</span>
-      )}
+      <div className="flex items-center gap-4">
+        {userName && (
+          <span className="text-sm text-gray-400">{userName}</span>
+        )}
+        {instance && status === 'connected' && (
+          <span className="text-sm text-gray-500">{instance}</span>
+        )}
+      </div>
     </div>
   )
 }

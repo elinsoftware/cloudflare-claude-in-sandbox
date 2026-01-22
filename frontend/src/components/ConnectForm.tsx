@@ -1,9 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
 import { type StoredCredentials, loadFromStorage, saveToStorage, clearStorage } from '../utils/storage'
 
+interface ServiceNowUser {
+  sys_id: string
+  name: string
+}
+
 interface ConnectFormProps {
   onConnect: (credentials: StoredCredentials) => void
-  onSessionCreated?: (sessionId: string) => void
+  onUserDetected?: (userName: string) => void
   disabled?: boolean
 }
 
@@ -20,19 +25,37 @@ function detectServiceNowInstance(): string | null {
   return null
 }
 
+async function fetchServiceNowUser(): Promise<ServiceNowUser | null> {
+  try {
+    const response = await fetch('/api/x_1851835_claude_0/claude_terminal_app/user')
+    if (!response.ok) return null
+    const data = await response.json()
+    if (data.result?.sys_id && data.result?.name) {
+      return { sys_id: data.result.sys_id, name: data.result.name }
+    }
+  } catch {
+    // Ignore errors
+  }
+  return null
+}
+
 // Compute initial visibility state once at module load
 function getInitialVisibility() {
   const stored = loadFromStorage()
   const detectedInstance = detectServiceNowInstance()
+  const isOnServiceNow = !!detectedInstance
   return {
     showWorkerUrl: !stored.workerUrl,
     showInstance: !stored.instance && !detectedInstance,
+    showSessionId: !isOnServiceNow, // Hide User ID field when on ServiceNow
+    isOnServiceNow,
   }
 }
 
-export function ConnectForm({ onConnect, disabled }: ConnectFormProps) {
+export function ConnectForm({ onConnect, onUserDetected, disabled }: ConnectFormProps) {
   // Track initial visibility (computed once on mount)
   const [visibility, setVisibility] = useState(getInitialVisibility)
+  const [serviceNowUser, setServiceNowUser] = useState<ServiceNowUser | null>(null)
 
   // Initialize state directly from localStorage
   const [credentials, setCredentials] = useState<StoredCredentials>(() => {
@@ -52,6 +75,21 @@ export function ConnectForm({ onConnect, disabled }: ConnectFormProps) {
   useEffect(() => {
     hasLoadedRef.current = true
   }, [])
+
+  // Fetch ServiceNow user when on ServiceNow instance
+  useEffect(() => {
+    if (visibility.isOnServiceNow) {
+      fetchServiceNowUser().then(user => {
+        if (user) {
+          setServiceNowUser(user)
+          // Auto-set sessionId from sys_id
+          setCredentials(prev => ({ ...prev, sessionId: user.sys_id }))
+          // Notify parent of user name
+          onUserDetected?.(user.name)
+        }
+      })
+    }
+  }, [visibility.isOnServiceNow, onUserDetected])
 
   // Save to localStorage when values change (but not on initial load)
   useEffect(() => {
@@ -75,12 +113,15 @@ export function ConnectForm({ onConnect, disabled }: ConnectFormProps) {
 
   const handleClear = () => {
     clearStorage()
-    setCredentials({ workerUrl: '', instance: '', username: '', password: '', anthropicApiKey: '', sessionId: '' })
-    setVisibility({ showWorkerUrl: true, showInstance: !detectServiceNowInstance() })
+    const isOnServiceNow = !!detectServiceNowInstance()
+    // Preserve sessionId if on ServiceNow (it comes from user sys_id)
+    const newSessionId = isOnServiceNow && serviceNowUser ? serviceNowUser.sys_id : ''
+    setCredentials({ workerUrl: '', instance: '', username: '', password: '', anthropicApiKey: '', sessionId: newSessionId })
+    setVisibility({ showWorkerUrl: true, showInstance: !isOnServiceNow, showSessionId: !isOnServiceNow, isOnServiceNow })
   }
 
   const { workerUrl, instance, username, password, anthropicApiKey, sessionId } = credentials
-  const { showWorkerUrl, showInstance } = visibility
+  const { showWorkerUrl, showInstance, showSessionId } = visibility
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 w-full">
@@ -102,20 +143,22 @@ export function ConnectForm({ onConnect, disabled }: ConnectFormProps) {
         </div>
       )}
 
-      <div>
-        <label htmlFor="sessionId" className="block text-sm font-medium text-gray-700 mb-1">
-          User ID <span className="text-gray-400">(optional - reuse existing)</span>
-        </label>
-        <input
-          type="text"
-          id="sessionId"
-          value={sessionId}
-          onChange={(e) => updateField('sessionId', e.target.value)}
-          placeholder="Leave empty to create new session"
-          disabled={disabled}
-          className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
-        />
-      </div>
+      {showSessionId && (
+        <div>
+          <label htmlFor="sessionId" className="block text-sm font-medium text-gray-700 mb-1">
+            User ID <span className="text-gray-400">(optional - reuse existing)</span>
+          </label>
+          <input
+            type="text"
+            id="sessionId"
+            value={sessionId}
+            onChange={(e) => updateField('sessionId', e.target.value)}
+            placeholder="Leave empty to create new session"
+            disabled={disabled}
+            className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
+          />
+        </div>
+      )}
 
       <hr className="border-gray-200" />
 

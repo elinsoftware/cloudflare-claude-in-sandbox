@@ -3,7 +3,7 @@ const pty = require('node-pty');
 const fs = require('fs');
 const path = require('path');
 
-// Version: 2026-01-22-v7
+// Version: 2026-01-22-v8
 
 // Setup Claude Code configuration (called on first WebSocket connection with credentials)
 function setupClaudeConfig(apiKey, instance, username, password) {
@@ -55,7 +55,7 @@ function setupClaudeConfig(apiKey, instance, username, password) {
 Example:
 \`\`\`bash
 curl -s -u "$SERVICENOW_USERNAME:$SERVICENOW_PASSWORD" \\
-  "https://$SERVICENOW_INSTANCE.service-now.com/api/now/table/incident?sysparm_limit=5"
+  "https://$SERVICENOW_INSTANCE/api/now/table/incident?sysparm_limit=5"
 \`\`\`
 
 This prevents credentials from being displayed in the terminal output.
@@ -78,12 +78,12 @@ allowed-tools: Bash, WebFetch
 \`\`\`bash
 curl -s -u "$SERVICENOW_USERNAME:$SERVICENOW_PASSWORD" \\
   -H "Accept: application/json" \\
-  "https://$SERVICENOW_INSTANCE.service-now.com/api/now/table/{table_name}"
+  "https://$SERVICENOW_INSTANCE/api/now/table/{table_name}"
 \`\`\`
 
 ## Base URL Pattern
 
-\`https://$SERVICENOW_INSTANCE.service-now.com/api/now/table/{table_name}\`
+\`https://$SERVICENOW_INSTANCE/api/now/table/{table_name}\`
 
 ## Common Tables
 
@@ -113,14 +113,14 @@ curl -s -u "$SERVICENOW_USERNAME:$SERVICENOW_PASSWORD" \\
 \`\`\`bash
 curl -s -u "$SERVICENOW_USERNAME:$SERVICENOW_PASSWORD" \\
   -H "Accept: application/json" \\
-  "https://$SERVICENOW_INSTANCE.service-now.com/api/now/table/incident?sysparm_limit=10"
+  "https://$SERVICENOW_INSTANCE/api/now/table/incident?sysparm_limit=10"
 \`\`\`
 
 **Get single record by sys_id:**
 \`\`\`bash
 curl -s -u "$SERVICENOW_USERNAME:$SERVICENOW_PASSWORD" \\
   -H "Accept: application/json" \\
-  "https://$SERVICENOW_INSTANCE.service-now.com/api/now/table/incident/{sys_id}"
+  "https://$SERVICENOW_INSTANCE/api/now/table/incident/{sys_id}"
 \`\`\`
 
 ### POST - Create Record
@@ -131,7 +131,7 @@ curl -s -u "$SERVICENOW_USERNAME:$SERVICENOW_PASSWORD" \\
   -H "Content-Type: application/json" \\
   -X POST \\
   -d '{"short_description":"New incident","urgency":"2","impact":"2"}' \\
-  "https://$SERVICENOW_INSTANCE.service-now.com/api/now/table/incident"
+  "https://$SERVICENOW_INSTANCE/api/now/table/incident"
 \`\`\`
 
 ### PUT - Update Record (replace all fields)
@@ -142,7 +142,7 @@ curl -s -u "$SERVICENOW_USERNAME:$SERVICENOW_PASSWORD" \\
   -H "Content-Type: application/json" \\
   -X PUT \\
   -d '{"short_description":"Updated description","urgency":"1"}' \\
-  "https://$SERVICENOW_INSTANCE.service-now.com/api/now/table/incident/{sys_id}"
+  "https://$SERVICENOW_INSTANCE/api/now/table/incident/{sys_id}"
 \`\`\`
 
 ### PATCH - Update Record (partial update)
@@ -153,7 +153,7 @@ curl -s -u "$SERVICENOW_USERNAME:$SERVICENOW_PASSWORD" \\
   -H "Content-Type: application/json" \\
   -X PATCH \\
   -d '{"state":"6","close_notes":"Resolved via API"}' \\
-  "https://$SERVICENOW_INSTANCE.service-now.com/api/now/table/incident/{sys_id}"
+  "https://$SERVICENOW_INSTANCE/api/now/table/incident/{sys_id}"
 \`\`\`
 
 ### DELETE - Delete Record
@@ -161,7 +161,7 @@ curl -s -u "$SERVICENOW_USERNAME:$SERVICENOW_PASSWORD" \\
 \`\`\`bash
 curl -s -u "$SERVICENOW_USERNAME:$SERVICENOW_PASSWORD" \\
   -X DELETE \\
-  "https://$SERVICENOW_INSTANCE.service-now.com/api/now/table/incident/{sys_id}"
+  "https://$SERVICENOW_INSTANCE/api/now/table/incident/{sys_id}"
 \`\`\`
 
 ---
@@ -223,28 +223,28 @@ curl -s -u "$SERVICENOW_USERNAME:$SERVICENOW_PASSWORD" \\
 \`\`\`bash
 curl -s -u "$SERVICENOW_USERNAME:$SERVICENOW_PASSWORD" \\
   -H "Accept: application/json" \\
-  "https://$SERVICENOW_INSTANCE.service-now.com/api/now/table/incident?sysparm_query=active=true^priority<=2&sysparm_fields=number,short_description,priority,assigned_to&sysparm_limit=20"
+  "https://$SERVICENOW_INSTANCE/api/now/table/incident?sysparm_query=active=true^priority<=2&sysparm_fields=number,short_description,priority,assigned_to&sysparm_limit=20"
 \`\`\`
 
 ### Get incidents created in last 7 days
 \`\`\`bash
 curl -s -u "$SERVICENOW_USERNAME:$SERVICENOW_PASSWORD" \\
   -H "Accept: application/json" \\
-  "https://$SERVICENOW_INSTANCE.service-now.com/api/now/table/incident?sysparm_query=sys_created_on>=javascript:gs.daysAgo(7)&sysparm_limit=50"
+  "https://$SERVICENOW_INSTANCE/api/now/table/incident?sysparm_query=sys_created_on>=javascript:gs.daysAgo(7)&sysparm_limit=50"
 \`\`\`
 
 ### Search incidents by keyword
 \`\`\`bash
 curl -s -u "$SERVICENOW_USERNAME:$SERVICENOW_PASSWORD" \\
   -H "Accept: application/json" \\
-  "https://$SERVICENOW_INSTANCE.service-now.com/api/now/table/incident?sysparm_query=short_descriptionLIKEpassword^ORdescriptionLIKEpassword&sysparm_limit=20"
+  "https://$SERVICENOW_INSTANCE/api/now/table/incident?sysparm_query=short_descriptionLIKEpassword^ORdescriptionLIKEpassword&sysparm_limit=20"
 \`\`\`
 
 ### Get user by username
 \`\`\`bash
 curl -s -u "$SERVICENOW_USERNAME:$SERVICENOW_PASSWORD" \\
   -H "Accept: application/json" \\
-  "https://$SERVICENOW_INSTANCE.service-now.com/api/now/table/sys_user?sysparm_query=user_name=admin&sysparm_fields=sys_id,name,email,user_name"
+  "https://$SERVICENOW_INSTANCE/api/now/table/sys_user?sysparm_query=user_name=admin&sysparm_fields=sys_id,name,email,user_name"
 \`\`\`
 
 ### Create incident
@@ -261,7 +261,7 @@ curl -s -u "$SERVICENOW_USERNAME:$SERVICENOW_PASSWORD" \\
     "category": "software",
     "subcategory": "application"
   }' \\
-  "https://$SERVICENOW_INSTANCE.service-now.com/api/now/table/incident"
+  "https://$SERVICENOW_INSTANCE/api/now/table/incident"
 \`\`\`
 
 ### Resolve incident
@@ -275,14 +275,14 @@ curl -s -u "$SERVICENOW_USERNAME:$SERVICENOW_PASSWORD" \\
     "close_code": "Solved (Permanently)",
     "close_notes": "Issue resolved by restarting the application server"
   }' \\
-  "https://$SERVICENOW_INSTANCE.service-now.com/api/now/table/incident/{sys_id}"
+  "https://$SERVICENOW_INSTANCE/api/now/table/incident/{sys_id}"
 \`\`\`
 
 ### Get incident count (stats API)
 \`\`\`bash
 curl -s -u "$SERVICENOW_USERNAME:$SERVICENOW_PASSWORD" \\
   -H "Accept: application/json" \\
-  "https://$SERVICENOW_INSTANCE.service-now.com/api/now/stats/incident?sysparm_count=true&sysparm_query=active=true"
+  "https://$SERVICENOW_INSTANCE/api/now/stats/incident?sysparm_count=true&sysparm_query=active=true"
 \`\`\`
 
 ---

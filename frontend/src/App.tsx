@@ -3,6 +3,7 @@ import { ConnectForm } from './components/ConnectForm'
 import { updateStoredSessionId } from './utils/storage'
 import { Terminal } from './components/Terminal'
 import { StatusBar } from './components/StatusBar'
+import heroImg from './assets/hero.png'
 
 type ConnectionStatus = 'disconnected' | 'connecting' | 'connected'
 
@@ -111,7 +112,7 @@ function App() {
             <div className="w-full max-w-md">
               <div className="mb-6 text-center">
                 <img
-                  src="/hero.png"
+                  src={heroImg}
                   alt="Claude Code Terminal"
                   className="w-full rounded-lg mb-6"
                 />

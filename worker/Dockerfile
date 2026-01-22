@@ -32,6 +32,7 @@ RUN mkdir -p /workspace
 # Set environment for terminal
 ENV SHELL=/bin/bash
 ENV TERM=xterm-256color
+ENV PATH="/root/.local/bin:$PATH"
 
 # Copy server script
 COPY server.js /app/server.js

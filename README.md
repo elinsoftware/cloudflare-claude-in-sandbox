@@ -8,7 +8,6 @@ Designed to be embedded in ServiceNow as a single-page application:
 
 ![screen2](/assets/s2.png)
 
-> **Note:** The backend must be deployed to Cloudflare - it cannot run locally. Cloudflare Containers are only available in the Cloudflare production environment. The frontend can be developed locally and will connect to your deployed Cloudflare Worker.
 
 ## Architecture
 
@@ -38,13 +37,15 @@ flowchart LR
 
 **Flow:**
 1. User opens the React app (hosted in ServiceNow or standalone)
-2. User enters credentials and clicks Connect
+2. User enters ServiceNow credentials and clicks Connect (the credentials will be passed to Claude Code so it can work with the ServiceNow instance)
 3. Frontend POSTs to Cloudflare Worker `/api/connect`
 4. Worker creates a Durable Object which spawns a container
 5. Container starts Claude Code CLI with a WebSocket server
 6. Frontend establishes WebSocket connection for real-time terminal I/O
 
 ## Frontend
+
+ServiceNow update set that contains a frontend app can be downloaded [here](/Claude-Terminal-Update-Set.xml)
 
 **Tech Stack:** React + Vite + Tailwind CSS + xterm.js
 
@@ -66,9 +67,10 @@ npm run build    # Outputs frontend/dist/index.html
 The frontend is deployed to ServiceNow using the reference architecture at:
 https://github.com/elinsoftware/servicenow-react-app
 
-This approach embeds the React SPA as a UI Page or Service Portal widget, allowing it to run within the ServiceNow context and auto-detect the instance URL.
 
 ## Backend (Cloudflare Worker)
+
+> **Note:** The backend must be deployed to Cloudflare - it cannot run locally. Cloudflare Containers are only available in the Cloudflare production environment. The frontend can be developed locally and will connect to your deployed Cloudflare Worker. 
 
 **Tech Stack:** Cloudflare Workers + Durable Objects + Containers
 
@@ -90,28 +92,6 @@ The backend consists of:
 - Claude Code CLI installed globally
 - Receives credentials via environment variables
 
-## Project Structure
-
-```
-frontend/
-  src/
-    App.tsx              # Main component, connection state
-    components/
-      ConnectForm.tsx    # Credential form
-      Terminal.tsx       # xterm.js + ttyd protocol
-      StatusBar.tsx      # Connection indicator
-    utils/
-      storage.ts         # localStorage helpers
-    assets/
-      hero.png           # Landing page image
-
-worker/
-  src/
-    index.ts             # Worker + Durable Object
-  server.js              # Container WebSocket server
-  Dockerfile             # Container image
-  wrangler.jsonc         # Cloudflare config
-```
 
 ## Development
 

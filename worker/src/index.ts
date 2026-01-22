@@ -17,7 +17,7 @@ interface StoredCredentials {
 // Custom Container class for Claude Code sandbox
 export class ClaudeContainer extends Container<Env> {
   defaultPort = TTYD_PORT;
-  sleepAfter = "5m"; // Auto-sleep after 5 minutes of inactivity
+  sleepAfter = "2m"; // Auto-sleep after 2 minutes of inactivity
   enableInternet = true; // Required for Claude Code to work
 
   // Store credentials in Durable Object storage

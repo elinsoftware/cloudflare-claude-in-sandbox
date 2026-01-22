@@ -109,7 +109,7 @@ function App() {
       <main className="flex-1 flex overflow-hidden">
         {isLanding ? (
           <div className="flex-1 flex items-center justify-center p-4">
-            <div className="w-full max-w-md">
+            <div className="w-full max-w-2xl">
               <div className="mb-6 text-center">
                 <img
                   src={heroImg}

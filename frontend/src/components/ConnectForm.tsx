@@ -83,7 +83,7 @@ export function ConnectForm({ onConnect, disabled }: ConnectFormProps) {
   const { showWorkerUrl, showInstance } = visibility
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 w-full max-w-md">
+    <form onSubmit={handleSubmit} className="space-y-4 w-full">
       {showWorkerUrl && (
         <div>
           <label htmlFor="workerUrl" className="block text-sm font-medium text-gray-700 mb-1">
@@ -190,7 +190,7 @@ export function ConnectForm({ onConnect, disabled }: ConnectFormProps) {
         <button
           type="submit"
           disabled={disabled || !workerUrl || !instance || !username || !password || !anthropicApiKey}
-          className="flex-1 py-2 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          className="flex-1 py-2 px-4 bg-[rgb(3,45,66)] hover:bg-[rgb(2,35,52)] disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-[rgb(3,45,66)] focus:ring-offset-2"
         >
           {disabled ? 'Connecting...' : 'Connect'}
         </button>

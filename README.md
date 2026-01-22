@@ -2,6 +2,8 @@
 
 Run Claude Code CLI in isolated Cloudflare containers with a web-based terminal interface. Designed to be embedded in ServiceNow as a single-page application.
 
+> **Note:** The backend must be deployed to Cloudflare - it cannot run locally. Cloudflare Containers are only available in the Cloudflare production environment. The frontend can be developed locally and will connect to your deployed Cloudflare Worker.
+
 ## Architecture
 
 ```mermaid
@@ -107,19 +109,23 @@ worker/
 
 ## Development
 
+**Important:** The backend (Cloudflare Worker + Containers) cannot run locally. Cloudflare Containers require deployment to Cloudflare's production environment. For development:
+
+1. Deploy the worker to Cloudflare first: `npm run deploy`
+2. Run the frontend locally and point it to your deployed worker URL
+
 ```bash
 # Install dependencies
 npm install
 
-# Run frontend + worker concurrently
-npm run dev
+# Deploy backend to Cloudflare (required first)
+npm run deploy
 
-# Frontend only (port 5173)
+# Run frontend locally (port 5173)
 npm run dev:frontend
-
-# Worker only (port 8787)
-npm run dev:worker
 ```
+
+The frontend dev server will proxy API requests to your deployed Cloudflare Worker.
 
 ## Deployment
 
@@ -179,3 +185,11 @@ The container runs a WebSocket server implementing the ttyd protocol:
 - Sessions identified by UUID, enabling reconnection
 - Credentials stored in localStorage (frontend) and passed to container as env vars
 - Frontend auto-detects ServiceNow instance from `window.location.hostname`
+
+## License
+
+MIT License - see [LICENSE](LICENSE) for details.
+
+Copyright (c) 2025 ELIN Software
+
+Contact: info@elinsoftware.com

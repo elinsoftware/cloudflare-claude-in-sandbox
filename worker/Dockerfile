@@ -19,8 +19,9 @@ WORKDIR /app
 # Install Node packages
 RUN npm init -y && npm install ws node-pty
 
-# Install Claude Code CLI globally
-RUN npm install -g @anthropic-ai/claude-code
+# Install Claude Code CLI using native installer (npm is deprecated)
+RUN curl -fsSL https://claude.ai/install.sh | bash \
+    && ln -s /root/.local/bin/claude /usr/local/bin/claude
 
 # Create workspace directory
 RUN mkdir -p /workspace
